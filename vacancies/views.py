@@ -2,7 +2,7 @@ import json
 
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
-from django.db.models import Count, Avg
+from django.db.models import Count, Avg, Q, F
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.utils.decorators import method_decorator
@@ -10,21 +10,61 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView
+from rest_framework.viewsets import ModelViewSet
 
 from djangoProject import settings
 from vacancies.models import Vacancy, Skill
 from vacancies.serializers import VacancyListSerializer, VacancyDetailSerializer, VacancyCreateSerializer, \
-    VacancyUpdateSerializer, VacancyDestroySerializer
+    VacancyUpdateSerializer, VacancyDestroySerializer, SkillSerializer
 
 
 def hello(request):
     return HttpResponse("Hello world")
 
 
+class SkillsViewSet(ModelViewSet):
+    queryset = Skill.objects.all()
+    serializer_class = SkillSerializer
+
+
 class VacancyListView(ListAPIView):
     queryset = Vacancy.objects.all()
     serializer_class = VacancyListSerializer
-    #
+
+    def get(self, request, *args, **kwargs):
+        vacancy_text = request.GET.get('text', None) # Search request eg.: /vacancy/?text=new
+        if vacancy_text:
+            self.queryset = self.queryset.filter(
+                text__icontains=vacancy_text
+            )
+
+        # skill_name = request.GET.get('skill', None) # Search request eg.: /vacancy/?skill=java
+        # if skill_name:
+        #     self.queryset = self.queryset.filter(
+        #         skills__name__icontains=skill_name
+        #     )
+        #
+        # return super().get(request, *args, **kwargs)
+        """ 
+        Множественный поиск пример на вакансиях
+        делаем Q класс и заворачиваем все условия для фильтра в класс Q
+        """
+        skills = request.GET.getlist('skill', None)  # Search request eg.: /vacancy/?skill=java&skill=python
+        skills_q = None
+        for skill in skills:
+            if skills_q is None:
+                skills_q = Q(skills__name__icontains=skill)# специальный Q класс для сбора фильтраций
+            else:
+                skills_q |= Q(skills__name__icontains=skill)# otherwise if we already have something we add another 'Q' class
+
+        if skills_q:
+            self.queryset = self.queryset.filter(skills_q)
+
+        return super().get(request, *args, **kwargs)
+
+
+
+
     # def get(self, request, *args, **kwargs):
     #     super().get(request, *args, **kwargs)
     #
@@ -188,3 +228,15 @@ class UserVacancyDetailView(View):
             "avg": user_qs.aggregate(avg=Avg('vacancies'))['avg']
         }
         return JsonResponse(response)
+
+# Запросы лайков по id [1, 2, 3, 4, 5, 6]
+class VacancyLikeView(UpdateAPIView):
+    queryset = Vacancy.objects.all()
+    serializer_class = VacancyDetailSerializer
+
+    def put(self, request, *args, **kwargs):
+        Vacancy.objects.filter(pk__in=request.data).update(likes=F('likes') + 1)# класс F представляет текущий класс записи
+
+        return JsonResponse(
+            VacancyDetailSerializer(Vacancy.objects.filter(pk__in=request.data), many=True).data, safe=False
+        )
