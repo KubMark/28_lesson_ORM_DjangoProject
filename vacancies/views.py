@@ -74,6 +74,7 @@ class VacancyDeleteView(DestroyAPIView):
     queryset = Vacancy.objects.all()
     serializer_class = VacancyDestroySerializer
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def user_vacancies(request):
