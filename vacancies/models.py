@@ -36,7 +36,6 @@ class Vacancy(models.Model):
     created = models.DateField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     skills = models.ManyToManyField(Skill)
-
     likes = models.IntegerField(default=0)
     min_experience = models.IntegerField(null=True, validators=[MinValueValidator(0)])
     updated_at = models.DateField(null=True, validators=[check_date_not_past])

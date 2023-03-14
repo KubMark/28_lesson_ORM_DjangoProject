@@ -1,6 +1,19 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 
 from vacancies.models import Vacancy, Skill
+
+
+class NotInStatusValidator:
+    def __init__(self, statuses):
+        if not isinstance(statuses, list):
+            statuses = [statuses]
+
+        self.statuses = statuses
+
+    def __call__(self, value):
+        if value in self.statuses:
+            raise serializers.ValidationError("Incorrect status.")
 
 
 class SkillSerializer(serializers.ModelSerializer):
@@ -16,12 +29,7 @@ class VacancyListSerializer(serializers.ModelSerializer):
         read_only=True,
         slug_field="name"
     )
-    # id = serializers.IntegerField()
-    # text = serializers.CharField(max_length=2000)
-    # slug = serializers.CharField(max_length=50)
-    # status = serializers.CharField(max_length=6)
-    # created = serializers.DateField()
-    # username = serializers.CharField(max_length=100)
+
     class Meta:
         model = Vacancy # we can add fields right into serializer if we want
         fields = ["id", "text", "slug", "status", "created", "username", "skills"]
@@ -47,6 +55,12 @@ class VacancyCreateSerializer(serializers.ModelSerializer):
         queryset=Skill.objects.all(),
         slug_field="name"
     )
+    slug = serializers.CharField(
+        max_length=50,
+        validators=[UniqueValidator(queryset=Vacancy.objects.all())]
+    )
+    status = serializers.CharField(max_length=8, validators=[NotInStatusValidator(['closed', 'open'])])
+
     class Meta:
         model = Vacancy
         fields = '__all__'
