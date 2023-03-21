@@ -1,1 +1,1 @@
-## JobCenter project on Django DRF
+## JobCenter project on Django DRF and PostgreSQL
